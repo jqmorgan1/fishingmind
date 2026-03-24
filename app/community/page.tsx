@@ -1,4 +1,5 @@
-import { Heart, MessageCircle, Share2, MoreHorizontal, Image } from "lucide-react";
+import Link from "next/link";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Image, Trophy, Plus, Filter } from "lucide-react";
 
 // 模拟动态数据
 const mockPosts = [
@@ -11,6 +12,7 @@ const mockPosts = [
     likes: 52,
     comments: 12,
     time: "2小时前",
+    location: "东湖",
   },
   {
     id: 2,
@@ -21,6 +23,7 @@ const mockPosts = [
     likes: 28,
     comments: 5,
     time: "5小时前",
+    location: null,
   },
   {
     id: 3,
@@ -31,6 +34,7 @@ const mockPosts = [
     likes: 89,
     comments: 23,
     time: "昨天",
+    location: "墨水湖",
   },
 ];
 
@@ -38,13 +42,38 @@ export default function CommunityPage() {
   return (
     <div className="p-4">
       {/* 头部 */}
-      <h1 className="text-xl font-bold mb-6">🗣️ 社区</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-bold">🗣️ 社区</h1>
+        <Link 
+          href="/community/contest"
+          className="flex items-center gap-1 text-yellow-400 text-sm hover:text-yellow-300"
+        >
+          <Trophy className="h-4 w-4" />
+          竞赛
+        </Link>
+      </div>
+
+      {/* 快捷功能 */}
+      <div className="flex gap-3 mb-4">
+        <Link 
+          href="/community/contest"
+          className="flex-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-xl p-3 flex items-center justify-center gap-2"
+        >
+          <Trophy className="h-5 w-5 text-yellow-400" />
+          <span className="text-sm font-medium">参加竞赛</span>
+        </Link>
+        <button className="flex-1 bg-[#1A2832] border border-gray-700 rounded-xl p-3 flex items-center justify-center gap-2">
+          <Plus className="h-5 w-5 text-gray-400" />
+          <span className="text-sm text-gray-400">发动态</span>
+        </button>
+      </div>
 
       {/* 话题标签 */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {['推荐', '关注', '路亚', '台钓', '海钓', '渔具'].map((tag, i) => (
-          <button
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+        {['推荐', '关注', '路亚', '台钓', '海钓', '渔具', '新手'].map((tag, i) => (
+          <Link
             key={tag}
+            href={tag === '推荐' ? '/community' : `/community/topic/${tag}`}
             className={`px-4 py-2 rounded-full text-sm whitespace-nowrap ${
               i === 0 
                 ? 'bg-[#FF6B35] text-white' 
@@ -52,8 +81,14 @@ export default function CommunityPage() {
             }`}
           >
             {tag}
-          </button>
+          </Link>
         ))}
+      </div>
+
+      {/* 筛选 */}
+      <div className="flex items-center gap-2 mb-4 text-sm text-gray-400">
+        <Filter className="h-4 w-4" />
+        <span>最新动态</span>
       </div>
 
       {/* 动态列表 */}
@@ -77,7 +112,10 @@ export default function CommunityPage() {
             </div>
 
             {/* 内容 */}
-            <p className="mb-3">{post.content}</p>
+            <p className="mb-2">{post.content}</p>
+            {post.location && (
+              <p className="text-xs text-gray-500 mb-3">📍 {post.location}</p>
+            )}
 
             {/* 图片占位 */}
             {post.image && (
@@ -104,10 +142,16 @@ export default function CommunityPage() {
         ))}
       </div>
 
-      {/* 发布按钮 */}
-      <button className="fixed bottom-24 right-4 bg-[#1A5F2A] text-white p-4 rounded-full shadow-lg hover:bg-[#2D8B4E] transition-colors">
-        <span className="text-2xl">+</span>
-      </button>
+      {/* 更多内容提示 */}
+      <div className="text-center py-8">
+        <p className="text-gray-500 text-sm">登录查看更多动态</p>
+        <Link 
+          href="/profile"
+          className="text-[#FF6B35] text-sm hover:underline mt-2 inline-block"
+        >
+          立即登录 →
+        </Link>
+      </div>
     </div>
   );
 }

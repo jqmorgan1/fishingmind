@@ -1,58 +1,58 @@
-import Link from "next/link";
-import { Plus, Fish, Ruler, Calendar, MapPin, Thermometer, Cloud, Trash2 } from "lucide-react";
+'use client'
 
-// 模拟渔获数据
-const mockLogs = [
-  {
-    id: 1,
-    fish: "翘嘴",
-    weight: "2.3kg",
-    length: "65cm",
-    spot: "东湖",
-    date: "2026-02-19",
-    time: "18:30",
-    weather: "多云 22°C",
-    bait: "亮片",
-  },
-  {
-    id: 2,
-    fish: "鲫鱼",
-    weight: "0.5kg",
-    length: "28cm",
-    spot: "墨水湖",
-    date: "2026-02-18",
-    time: "07:15",
-    weather: "晴 18°C",
-    bait: "蚯蚓",
-  },
-  {
-    id: 3,
-    fish: "鲤鱼",
-    weight: "3.2kg",
-    length: "72cm",
-    spot: "长江二桥",
-    date: "2026-02-16",
-    time: "06:00",
-    weather: "阴 20°C",
-    bait: "玉米",
-  },
-  {
-    id: 4,
-    fish: "鳜鱼",
-    weight: "1.1kg",
-    length: "45cm",
-    spot: "汉江",
-    date: "2026-02-14",
-    time: "19:30",
-    weather: "小雨 16°C",
-    bait: "软虫",
-  },
-];
+import { useState, useEffect } from 'react';
+import Link from "next/link";
+import { Plus, Fish, Ruler, Calendar, MapPin, Thermometer, Cloud, Trash2, Edit } from "lucide-react";
+
+interface FishingLog {
+  id: number;
+  fishType: string;
+  weight: string;
+  length: string;
+  spot: string;
+  date: string;
+  time: string;
+  weather: string;
+  bait: string;
+  photo?: string;
+}
 
 export default function LogPage() {
-  const totalFish = mockLogs.length;
-  const totalWeight = mockLogs.reduce((acc, log) => acc + parseFloat(log.weight), 0);
-  
+  const [logs, setLogs] = useState<FishingLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // 从本地存储加载
+    const savedLogs = localStorage.getItem('fishing_logs');
+    if (savedLogs) {
+      try {
+        setLogs(JSON.parse(savedLogs));
+      } catch (e) {
+        console.error('Failed to parse logs', e);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  const deleteLog = (id: number) => {
+    if (confirm('确定删除这条记录吗？')) {
+      const newLogs = logs.filter(log => log.id !== id);
+      setLogs(newLogs);
+      localStorage.setItem('fishing_logs', JSON.stringify(newLogs));
+    }
+  };
+
+  const totalFish = logs.length;
+  const totalWeight = logs.reduce((acc, log) => acc + (parseFloat(log.weight) || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="p-4 flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FF6B35]"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4">
       {/* 头部 */}
@@ -60,10 +60,10 @@ export default function LogPage() {
         <h1 className="text-2xl font-bold">🎣 我的渔获</h1>
         <Link 
           href="/log/add"
-          className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          className="bg-[#FF6B35] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
         >
           <Plus className="h-4 w-4" />
-          添加记录
+          添加
         </Link>
       </div>
 
@@ -85,49 +85,24 @@ export default function LogPage() {
         </div>
       </div>
 
-      {/* 渔获列表 */}
-      <div className="space-y-4">
-        {mockLogs.map((log) => (
-          <div key={log.id} className="bg-[#1A2832] rounded-xl p-4 border border-gray-700">
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-[#1A5F2A] rounded-full flex items-center justify-center">
-                  <Fish className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">{log.fish}</h3>
-                  <p className="text-sm text-gray-400">{log.weight} | {log.length}</p>
-                </div>
-              </div>
-              <button className="text-gray-500 hover:text-red-400">
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="flex items-center gap-1 text-gray-400">
-                <MapPin className="h-4 w-4" />
-                {log.spot}
-              </div>
-              <div className="flex items-center gap-1 text-gray-400">
-                <Calendar className="h-4 w-4" />
-                {log.date} {log.time}
-              </div>
-              <div className="flex items-center gap-1 text-gray-400">
-                <Thermometer className="h-4 w-4" />
-                {log.weather}
-              </div>
-              <div className="flex items-center gap-1 text-gray-400">
-                <Cloud className="h-4 w-4" />
-                饵料: {log.bait}
-              </div>
-            </div>
-          </div>
+      {/* 筛选 */}
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {['全部', '翘嘴', '鲫鱼', '鲤鱼', '草鱼'].map((filter) => (
+          <button
+            key={filter}
+            className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap ${
+              filter === '全部' 
+                ? 'bg-[#FF6B35] text-white' 
+                : 'bg-[#1A2832] text-gray-300 border border-gray-700'
+            }`}
+          >
+            {filter}
+          </button>
         ))}
       </div>
 
-      {/* 空状态提示 */}
-      {mockLogs.length === 0 && (
+      {/* 渔获列表 */}
+      {logs.length === 0 ? (
         <div className="text-center py-12">
           <Fish className="h-16 w-16 text-gray-600 mx-auto mb-4" />
           <p className="text-gray-400 mb-4">还没有渔获记录</p>
@@ -137,6 +112,66 @@ export default function LogPage() {
           >
             添加第一条渔获
           </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {logs.map((log) => (
+            <div key={log.id} className="bg-[#1A2832] rounded-xl p-4 border border-gray-700">
+              <div className="flex gap-4">
+                {/* 照片 */}
+                <div className="w-24 h-24 bg-gray-700 rounded-lg flex-shrink-0 overflow-hidden">
+                  {log.photo ? (
+                    <img src={log.photo} alt={log.fishType} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Fish className="h-8 w-8 text-gray-500" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* 信息 */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-lg">{log.fishType}</h3>
+                      <p className="text-sm text-gray-400">{log.weight}kg | {log.length}cm</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="text-gray-500 hover:text-[#FF6B35]">
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={() => deleteLog(log.id)}
+                        className="text-gray-500 hover:text-red-400"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs text-gray-400">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {log.spot}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {log.date}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Thermometer className="h-3 w-3" />
+                      {log.weather}
+                    </div>
+                    {log.bait && (
+                      <div className="flex items-center gap-1">
+                        🪤 {log.bait}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
