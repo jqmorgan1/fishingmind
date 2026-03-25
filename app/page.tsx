@@ -43,8 +43,8 @@ export default function Home() {
   }, []);
 
   // 计算距离（简化版）
-  const calculateDistance = (lat: number, lng: number) => {
-    if (!userLocation) return null;
+  const calculateDistance = (lat: number, lng: number): string | undefined => {
+    if (!userLocation) return undefined;
     // 简化计算
     const dist = Math.sqrt(
       Math.pow((lat - userLocation[0]) * 111, 2) + 

@@ -11,6 +11,7 @@ export default function AddLogPage() {
   const [loading, setLoading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [shareToCommunity, setShareToCommunity] = useState(true);
   const [formData, setFormData] = useState({
     fishType: '',
     weight: '',
@@ -20,7 +21,6 @@ export default function AddLogPage() {
     notes: '',
   });
 
-  // 处理图片选择
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -33,7 +33,6 @@ export default function AddLogPage() {
     }
   };
 
-  // 移除图片
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
@@ -42,11 +41,9 @@ export default function AddLogPage() {
     }
   };
 
-  // 提交表单
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 必须上传照片
     if (!imageFile) {
       alert('请先上传渔获照片！');
       return;
@@ -62,25 +59,25 @@ export default function AddLogPage() {
     try {
       const supabase = createClient();
       
-      // 1. 上传图片
       let photoUrl = '';
       if (imageFile) {
         const fileName = `${Date.now()}-${imageFile.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('fishing-logs')
           .upload(fileName, imageFile);
 
-        if (uploadError) throw uploadError;
-        
-        // 获取公开URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('fishing-logs')
-          .getPublicUrl(fileName);
-        photoUrl = publicUrl;
+        if (uploadError) {
+          console.log('Upload error, using local mode');
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('fishing-logs')
+            .getPublicUrl(fileName);
+          photoUrl = publicUrl;
+        }
       }
 
-      // 2. 保存记录到数据库
-      const { error: insertError } = await supabase
+      // 保存渔获记录
+      const { data: logData, error: insertError } = await supabase
         .from('fishing_logs')
         .insert({
           fish_type: formData.fishType,
@@ -92,26 +89,61 @@ export default function AddLogPage() {
           photo_url: photoUrl,
           weather: '多云 23°C',
           temperature: 23,
-          location: '获取中...',
-        });
+        })
+        .select();
 
       if (insertError) throw insertError;
 
-      alert('渔获记录成功！');
+      // 如果选择分享到社区，同时发布动态
+      if (shareToCommunity && logData?.[0]) {
+        const log = logData[0];
+        const content = `今天在${formData.spot}钓到一条${formData.fishType}${
+          formData.weight ? `，${formData.weight}kg` : ''
+        }！${formData.notes ? formData.notes : ''}`;
+
+        await supabase.from('posts').insert({
+          content,
+          image_url: photoUrl,
+          fish_log_id: log.id,
+        });
+      }
+
+      alert(shareToCommunity ? '记录成功，已分享到社区！' : '渔获记录成功！');
       router.push('/log');
     } catch (error) {
-      console.error('Error saving log:', error);
-      // 如果是数据库错误（还没建表），先用本地存储模拟
+      console.error('Error:', error);
+      // 本地模式
       const logs = JSON.parse(localStorage.getItem('fishing_logs') || '[]');
-      logs.unshift({
+      const newLog = {
         id: Date.now(),
         ...formData,
         photo: imagePreview,
         date: new Date().toISOString(),
         weather: '多云 23°C',
-      });
+      };
+      logs.unshift(newLog);
       localStorage.setItem('fishing_logs', JSON.stringify(logs));
-      alert('记录已保存！（本地模式）');
+
+      // 本地也模拟发布到社区
+      if (shareToCommunity) {
+        const posts = JSON.parse(localStorage.getItem('community_posts') || '[]');
+        posts.unshift({
+          id: Date.now(),
+          user: '钓鱼小白',
+          avatar: '🐟',
+          content: `今天在${formData.spot}钓到一条${formData.fishType}${
+            formData.weight ? `，${formData.weight}kg` : ''
+          }！`,
+          image: imagePreview,
+          likes: 0,
+          comments: 0,
+          time: '刚刚',
+          isMyPost: true,
+        });
+        localStorage.setItem('community_posts', JSON.stringify(posts));
+      }
+
+      alert(shareToCommunity ? '记录成功，已分享到社区！' : '记录已保存！（本地模式）');
       router.push('/log');
     } finally {
       setLoading(false);
@@ -120,13 +152,11 @@ export default function AddLogPage() {
 
   return (
     <div className="p-4">
-      {/* 头部 */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-bold">添加渔获</h1>
         <span className="text-red-400 text-sm">* 必须拍照</span>
       </div>
 
-      {/* 拍照/上传区域 - 必须的！ */}
       <div 
         onClick={() => fileInputRef.current?.click()}
         className="bg-[#1A2832] rounded-xl p-8 mb-6 border-2 border-dashed border-gray-600 flex flex-col items-center justify-center cursor-pointer hover:border-[#FF6B35] transition-colors"
@@ -147,9 +177,6 @@ export default function AddLogPage() {
             >
               <X className="h-4 w-4" />
             </button>
-            <div className="absolute bottom-2 left-2 bg-black/50 px-3 py-1 rounded-full text-xs">
-              点击更换照片
-            </div>
           </div>
         ) : (
           <>
@@ -169,7 +196,6 @@ export default function AddLogPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* 鱼种 */}
         <div>
           <label className="block text-sm text-gray-400 mb-2">鱼种 *</label>
           <input
@@ -182,7 +208,6 @@ export default function AddLogPage() {
           />
         </div>
 
-        {/* 体重和长度 */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm text-gray-400 mb-2">体重 (kg)</label>
@@ -208,7 +233,6 @@ export default function AddLogPage() {
           </div>
         </div>
 
-        {/* 钓点 */}
         <div>
           <label className="block text-sm text-gray-400 mb-2">钓点 *</label>
           <div className="relative">
@@ -224,7 +248,6 @@ export default function AddLogPage() {
           </div>
         </div>
 
-        {/* 饵料 */}
         <div>
           <label className="block text-sm text-gray-400 mb-2">饵料</label>
           <input
@@ -236,7 +259,6 @@ export default function AddLogPage() {
           />
         </div>
 
-        {/* 备注 */}
         <div>
           <label className="block text-sm text-gray-400 mb-2">备注</label>
           <textarea
@@ -248,28 +270,24 @@ export default function AddLogPage() {
           />
         </div>
 
-        {/* 自动获取的信息展示 */}
+        {/* 分享到社区开关 */}
         <div className="bg-[#1A2832] rounded-lg p-4 border border-gray-700">
-          <p className="text-sm text-gray-400 mb-2">📋 将自动记录：</p>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-1 text-gray-300">
-              <Thermometer className="h-4 w-4" />
-              23°C
+          <label className="flex items-center justify-between cursor-pointer">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={shareToCommunity}
+                onChange={(e) => setShareToCommunity(e.target.checked)}
+                className="w-5 h-5 rounded accent-[#FF6B35]"
+              />
+              <div>
+                <p className="font-medium">分享到社区</p>
+                <p className="text-xs text-gray-400">让钓友看看你的渔获</p>
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-gray-300">
-              <Cloud className="h-4 w-4" />
-              多云
-            </div>
-            <div className="flex items-center gap-1 text-gray-300">
-              📍 获取GPS定位中...
-            </div>
-            <div className="flex items-center gap-1 text-gray-300">
-              🕐 {new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'})}
-            </div>
-          </div>
+          </label>
         </div>
 
-        {/* 提交按钮 */}
         <button
           type="submit"
           disabled={loading || !imagePreview}
